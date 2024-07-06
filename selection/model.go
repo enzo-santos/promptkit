@@ -110,14 +110,20 @@ func (m *Model[T]) initTemplate() (*template.Template, error) {
 		},
 		"Selected": func(c *Choice[T]) string {
 			if m.SelectedChoiceStyle == nil {
-				return c.String
+				if labeler := m.Labeler; labeler == nil {
+					return c.String
+				}
+				return m.Labeler(c)
 			}
 
 			return m.SelectedChoiceStyle(c)
 		},
 		"Unselected": func(c *Choice[T]) string {
 			if m.UnselectedChoiceStyle == nil {
-				return c.String
+				if labeler := m.Labeler; labeler == nil {
+					return c.String
+				}
+				return m.Labeler(c)
 			}
 
 			return m.UnselectedChoiceStyle(c)
