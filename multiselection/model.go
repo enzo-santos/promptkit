@@ -28,6 +28,9 @@ type Model[T any] struct {
 	filterInput textinput.Model
 	// currently displayed choices, after filtering and pagination
 	currentChoices []*Choice[T]
+	// all included choices
+	includedChoices map[*Choice[T]]struct{}
+
 	// number of available choices after filtering
 	availableChoices int
 	// index of current selection in currentChoices slice
