@@ -122,6 +122,13 @@ func (m *Model[T]) initTemplate() (*template.Template, error) {
 			}
 			return labeler(c)
 		},
+		"Included": func(c *Choice[T]) string {
+			labeler := m.IncludedChoiceStyle
+			if labeler == nil {
+				return c.String
+			}
+			return labeler(c)
+		},
 		"Unselected": func(c *Choice[T]) string {
 			labeler := m.UnselectedChoiceStyle
 			if labeler == nil {
