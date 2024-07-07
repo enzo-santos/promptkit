@@ -59,7 +59,8 @@ const (
 	// entered yet.
 	DefaultFilterPlaceholder = "Type to filter choices"
 
-	accentColor = termenv.ANSI256Color(32)
+	highlightColor = termenv.ANSI256Color(28)
+	accentColor    = termenv.ANSI256Color(32)
 )
 
 // DefaultSelectedChoiceStyle is the default style for selected choices.
@@ -67,9 +68,11 @@ func DefaultSelectedChoiceStyle[T any](c *Choice[T]) string {
 	return termenv.String(c.String).Foreground(accentColor).Bold().String()
 }
 
-// DefaultFinalChoiceStyle is the default style for final choices.
-func DefaultFinalChoiceStyle[T any](c *Choice[T]) string {
-	return termenv.String(c.String).Foreground(accentColor).String()
+// DefaultIncludedChoiceStyle is the default style for included choices.
+func DefaultIncludedChoiceStyle[T any](c *Choice[T]) string {
+	return termenv.String(c.String).Foreground(highlightColor).Bold().String()
+}
+
 // DefaultFinalChoicesStyle is the default style for final choices.
 func DefaultFinalChoicesStyle[T any](c []*Choice[T]) string {
 	var label string
