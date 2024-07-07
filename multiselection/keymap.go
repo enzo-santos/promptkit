@@ -12,6 +12,7 @@ func NewDefaultKeyMap() *KeyMap {
 	return &KeyMap{
 		Down:        []string{"down"},
 		Up:          []string{"up"},
+		Include:     []string{" "},
 		Select:      []string{"enter"},
 		Abort:       []string{"ctrl+c"},
 		ClearFilter: []string{"esc"},
@@ -24,6 +25,7 @@ func NewDefaultKeyMap() *KeyMap {
 type KeyMap struct {
 	Down        []string
 	Up          []string
+	Include     []string
 	Select      []string
 	Abort       []string
 	ClearFilter []string
@@ -51,6 +53,10 @@ func validateKeyMap(km *KeyMap) error {
 
 	if len(km.Down) == 0 {
 		return fmt.Errorf("no down key")
+	}
+
+	if len(km.Include) == 0 {
+		return fmt.Errorf("no include key")
 	}
 
 	if len(km.Select) == 0 {
