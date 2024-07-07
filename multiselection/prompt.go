@@ -189,7 +189,14 @@ type MultiSelection[T any] struct {
 	FilterInputPlaceholderStyle lipgloss.Style
 	FilterInputCursorStyle      lipgloss.Style
 
-	// SelectedChoice style allows to customize the appearance of the currently
+	// IncludedChoiceStyle allows to customize the appearance of the currently
+	// included choices. By default DefaultIncludedChoiceStyle is used. If it is
+	// nil, no style will be applied and the plain string representation of the
+	// choice will be used. This style will be available as the template
+	// function Selected. Custom templates may or may not use this function.
+	IncludedChoiceStyle func(*Choice[T]) string
+
+	// SelectedChoiceStyle allows to customize the appearance of the currently
 	// selected choice. By default DefaultSelectedChoiceStyle is used. If it is
 	// nil, no style will be applied and the plain string representation of the
 	// choice will be used. This style will be available as the template
@@ -243,7 +250,8 @@ func New[T any](prompt string, choices []T) *MultiSelection[T] {
 		Filter:                      FilterContainsCaseInsensitive[T],
 		FilterInputPlaceholderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
 		SelectedChoiceStyle:         DefaultSelectedChoiceStyle[T],
-		FinalChoiceStyle:            DefaultFinalChoiceStyle[T],
+		IncludedChoiceStyle:         DefaultIncludedChoiceStyle[T],
+		FinalChoicesStyle:           DefaultFinalChoicesStyle[T],
 		KeyMap:                      NewDefaultKeyMap(),
 		FilterPlaceholder:           DefaultFilterPlaceholder,
 		ExtendedTemplateFuncs:       template.FuncMap{},
