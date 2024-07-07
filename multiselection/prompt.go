@@ -54,7 +54,7 @@ const (
 	// DefaultResultTemplate defines the default appearance with which the
 	// finale result of the selection is presented.
 	DefaultResultTemplate = `
-	{{- print .Prompt " " (Final .FinalChoice) "\n" -}}
+	{{- print .Prompt " " (Final .FinalChoices) "\n" -}}
 	`
 
 	// DefaultFilterPrompt is the default prompt for the filter input when
