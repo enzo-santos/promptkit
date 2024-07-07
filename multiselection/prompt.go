@@ -72,8 +72,8 @@ func DefaultFinalChoiceStyle[T any](c *Choice[T]) string {
 	return termenv.String(c.String).Foreground(accentColor).String()
 }
 
-// Selection represents a configurable selection prompt.
-type Selection[T any] struct {
+// MultiSelection represents a configurable selection prompt.
+type MultiSelection[T any] struct {
 	// choices represent all selectable choices of the selection. Slices of
 	// arbitrary types can be converted to a slice of choices using the helper
 	// selection.choices.
@@ -208,10 +208,10 @@ type Selection[T any] struct {
 	ColorProfile termenv.Profile
 }
 
-// New creates a new selection prompt. See the Selection properties for more
+// New creates a new selection prompt. See the MultiSelection properties for more
 // documentation.
-func New[T any](prompt string, choices []T) *Selection[T] {
-	return &Selection[T]{
+func New[T any](prompt string, choices []T) *MultiSelection[T] {
+	return &MultiSelection[T]{
 		choices:                     asChoices(choices),
 		Prompt:                      prompt,
 		FilterPrompt:                DefaultFilterPrompt,
@@ -231,9 +231,7 @@ func New[T any](prompt string, choices []T) *Selection[T] {
 }
 
 // RunPrompt executes the selection prompt.
-func (s *Selection[T]) RunPrompt() (T, error) {
-	var zeroValue T
-
+func (s *MultiSelection[T]) RunPrompt() (T, error) {
 	err := validateKeyMap(s.KeyMap)
 	if err != nil {
 		return zeroValue, fmt.Errorf("insufficient key map: %w", err)

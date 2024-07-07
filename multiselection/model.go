@@ -16,13 +16,13 @@ import (
 
 // Model implements the bubbletea.Model for a selection prompt.
 type Model[T any] struct {
-	*Selection[T]
+	*MultiSelection[T]
 
 	// Err holds errors that may occur during the execution of
 	// the selection prompt.
 	Err error
 
-	// MaxWidth limits the width of the view using the Selection's WrapMode.
+	// MaxWidth limits the width of the view using the MultiSelection's WrapMode.
 	MaxWidth int
 
 	filterInput textinput.Model
@@ -47,8 +47,8 @@ var _ tea.Model = &Model[any]{}
 
 // NewModel returns a new selection prompt model for the
 // provided choices.
-func NewModel[T any](selection *Selection[T]) *Model[T] {
-	return &Model[T]{Selection: selection}
+func NewModel[T any](selection *MultiSelection[T]) *Model[T] {
+	return &Model[T]{MultiSelection: selection}
 }
 
 // Init initializes the selection prompt model.
