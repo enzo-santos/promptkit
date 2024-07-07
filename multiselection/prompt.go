@@ -180,13 +180,13 @@ type MultiSelection[T any] struct {
 	// Custom templates may or may not use this function.
 	UnselectedChoiceStyle func(*Choice[T]) string
 
-	// FinalChoiceStyle style allows to customize the appearance of the choice
-	// that was ultimately chosen. By default DefaultFinalChoiceStyle is used.
+	// FinalChoicesStyle style allows to customize the appearance of the choice
+	// that were ultimately chosen. By default DefaultFinalChoicesStyle is used.
 	// If it is nil, no style will be applied and the plain string
-	// representation of the choice will be used. This style will be available
+	// representation of the choices will be used. This style will be available
 	// as the template function Final. Custom templates may or may not use this
 	// function.
-	FinalChoiceStyle func(*Choice[T]) string
+	FinalChoicesStyle func([]*Choice[T]) string
 
 	// KeyMap determines with which keys the selection prompt is controlled. By
 	// default, DefaultKeyMap is used.
