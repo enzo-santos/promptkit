@@ -376,13 +376,13 @@ func (m *Model[T]) resultView() (string, error) {
 		return "", fmt.Errorf("rendering confirmation without loaded template")
 	}
 
-	choice, err := m.ValueAsChoice()
+	choices, err := m.ValuesAsChoices()
 	if err != nil {
 		return "", err
 	}
 
 	err = m.resultTmpl.Execute(viewBuffer, map[string]interface{}{
-		"FinalChoice":   choice,
+		"FinalChoices":  choices,
 		"Prompt":        m.Prompt,
 		"AllChoices":    m.choices,
 		"NAllChoices":   len(m.choices),
