@@ -1,4 +1,4 @@
-package selection
+package multiselection
 
 import (
 	"fmt"

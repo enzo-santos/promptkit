@@ -1,4 +1,4 @@
-package selection
+package multiselection
 
 import (
 	"bytes"
@@ -16,18 +16,21 @@ import (
 
 // Model implements the bubbletea.Model for a selection prompt.
 type Model[T any] struct {
-	*Selection[T]
+	*MultiSelection[T]
 
 	// Err holds errors that may occur during the execution of
 	// the selection prompt.
 	Err error
 
-	// MaxWidth limits the width of the view using the Selection's WrapMode.
+	// MaxWidth limits the width of the view using the MultiSelection's WrapMode.
 	MaxWidth int
 
 	filterInput textinput.Model
 	// currently displayed choices, after filtering and pagination
 	currentChoices []*Choice[T]
+	// all included choices
+	includedChoices map[*Choice[T]]struct{}
+
 	// number of available choices after filtering
 	availableChoices int
 	// index of current selection in currentChoices slice
@@ -47,8 +50,8 @@ var _ tea.Model = &Model[any]{}
 
 // NewModel returns a new selection prompt model for the
 // provided choices.
-func NewModel[T any](selection *Selection[T]) *Model[T] {
-	return &Model[T]{Selection: selection}
+func NewModel[T any](selection *MultiSelection[T]) *Model[T] {
+	return &Model[T]{MultiSelection: selection}
 }
 
 // Init initializes the selection prompt model.
@@ -108,19 +111,30 @@ func (m *Model[T]) initTemplate() (*template.Template, error) {
 		"IsScrollUpHintPosition": func(idx int) bool {
 			return m.canScrollUp() && idx == 0 && m.scrollOffset > 0
 		},
+		"IsIncluded": func(c *Choice[T]) bool {
+			_, ok := m.includedChoices[c]
+			return ok
+		},
 		"Selected": func(c *Choice[T]) string {
-			if m.SelectedChoiceStyle == nil {
+			labeler := m.SelectedChoiceStyle
+			if labeler == nil {
 				return c.String
 			}
-
-			return m.SelectedChoiceStyle(c)
+			return labeler(c)
+		},
+		"Included": func(c *Choice[T]) string {
+			labeler := m.IncludedChoiceStyle
+			if labeler == nil {
+				return c.String
+			}
+			return labeler(c)
 		},
 		"Unselected": func(c *Choice[T]) string {
-			if m.UnselectedChoiceStyle == nil {
+			labeler := m.UnselectedChoiceStyle
+			if labeler == nil {
 				return c.String
 			}
-
-			return m.SelectedChoiceStyle(c)
+			return labeler(c)
 		},
 	})
 
@@ -137,12 +151,12 @@ func (m *Model[T]) initResultTemplate() (*template.Template, error) {
 	tmpl.Funcs(m.ExtendedTemplateFuncs)
 	tmpl.Funcs(promptkit.UtilFuncMap())
 	tmpl.Funcs(template.FuncMap{
-		"Final": func(c *Choice[T]) string {
-			if m.FinalChoiceStyle == nil {
-				return c.String
+		"Final": func(c []*Choice[T]) string {
+			if m.FinalChoicesStyle == nil {
+				return DefaultFinalChoicesStyle(c)
 			}
 
-			return m.FinalChoiceStyle(c)
+			return m.FinalChoicesStyle(c)
 		},
 	})
 
@@ -162,8 +176,8 @@ func (m *Model[T]) initFilterInput() textinput.Model {
 	return filterInput
 }
 
-// ValueAsChoice returns the selected value wrapped in a Choice struct.
-func (m *Model[T]) ValueAsChoice() (*Choice[T], error) {
+// ValuesAsChoices returns the selected value wrapped in a Choice struct.
+func (m *Model[T]) ValuesAsChoices() ([]*Choice[T], error) {
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -172,24 +186,27 @@ func (m *Model[T]) ValueAsChoice() (*Choice[T], error) {
 		return nil, fmt.Errorf("no choices")
 	}
 
-	if m.currentIdx < 0 || m.currentIdx >= len(m.currentChoices) {
-		return nil, fmt.Errorf("choice index out of bounds")
+	choices := make([]*Choice[T], len(m.includedChoices))
+	idx := 0
+	for choice := range m.includedChoices {
+		choices[idx] = choice
+		idx++
 	}
-
-	return m.currentChoices[m.currentIdx], nil
+	return choices, nil
 }
 
-// Value returns the choice that is currently selected or the final
+// Values returns the choice that is currently selected or the final
 // choice after the prompt has concluded.
-func (m *Model[T]) Value() (T, error) {
-	choice, err := m.ValueAsChoice()
+func (m *Model[T]) Values() ([]T, error) {
+	choices, err := m.ValuesAsChoices()
 	if err != nil {
-		var zeroValue T
-
-		return zeroValue, err
+		return nil, err
 	}
-
-	return choice.Value, nil
+	values := make([]T, len(choices))
+	for i, choice := range choices {
+		values[i] = choice.Value
+	}
+	return values, nil
 }
 
 // Update updates the model based on the received message.
@@ -206,6 +223,17 @@ func (m *Model[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 
 			return m, tea.Quit
+		case keyMatches(msg, m.KeyMap.Include):
+			choice := m.currentChoices[m.currentIdx]
+			if m.includedChoices == nil {
+				m.includedChoices = make(map[*Choice[T]]struct{})
+			}
+			_, ok := m.includedChoices[choice]
+			if ok {
+				delete(m.includedChoices, choice)
+			} else {
+				m.includedChoices[choice] = struct{}{}
+			}
 		case keyMatches(msg, m.KeyMap.Select):
 			if len(m.currentChoices) == 0 {
 				return m, nil
@@ -359,13 +387,13 @@ func (m *Model[T]) resultView() (string, error) {
 		return "", fmt.Errorf("rendering confirmation without loaded template")
 	}
 
-	choice, err := m.ValueAsChoice()
+	choices, err := m.ValuesAsChoices()
 	if err != nil {
 		return "", err
 	}
 
 	err = m.resultTmpl.Execute(viewBuffer, map[string]interface{}{
-		"FinalChoice":   choice,
+		"FinalChoices":  choices,
 		"Prompt":        m.Prompt,
 		"AllChoices":    m.choices,
 		"NAllChoices":   len(m.choices),

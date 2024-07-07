@@ -1,0 +1,293 @@
+/*
+Package multiselection implements a selection prompt that allows users to select one
+of the pre-defined choices. It also offers customizable appreance and key map as
+well as optional support for pagination, filtering.
+*/
+package multiselection
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"text/template"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/erikgeiser/promptkit"
+	"github.com/muesli/termenv"
+)
+
+const (
+	// DefaultTemplate defines the default appearance of the selection and can
+	// be copied as a starting point for a custom template.
+	DefaultTemplate = `
+{{- if .Prompt -}}
+  {{ Bold .Prompt }}
+{{ end -}}
+{{ if .IsFiltered }}
+  {{- print .FilterPrompt " " .FilterInput }}
+{{ end }}
+
+{{- range  $i, $choice := .Choices }}
+  {{- if IsScrollUpHintPosition $i }}
+    {{- "⇡ " -}}
+  {{- else if IsScrollDownHintPosition $i -}}
+    {{- "⇣ " -}}
+  {{- else -}}
+    {{- "  " -}}
+  {{- end -}}
+
+  {{- if IsIncluded $choice }}
+   {{- if eq $.SelectedIndex $i }}
+    {{- print (Foreground "32" (Bold "✓ ")) (Selected $choice) "\n" }}
+   {{- else }}
+    {{- print (Foreground "28" (Bold "✓ ")) (Included $choice) "\n" }}
+   {{- end }}
+  {{- else if eq $.SelectedIndex $i }}
+   {{- print (Foreground "32" (Bold "▸ ")) (Selected $choice) "\n" }}
+  {{- else }}
+    {{- print "  " (Unselected $choice) "\n" }}
+  {{- end }}
+{{- end}}`
+
+	// DefaultResultTemplate defines the default appearance with which the
+	// finale result of the selection is presented.
+	DefaultResultTemplate = `
+	{{- print .Prompt " " (Final .FinalChoices) "\n" -}}
+	`
+
+	// DefaultFilterPrompt is the default prompt for the filter input when
+	// filtering is enabled.
+	DefaultFilterPrompt = "Filter:"
+
+	// DefaultFilterPlaceholder is printed by default when no filter text was
+	// entered yet.
+	DefaultFilterPlaceholder = "Type to filter choices"
+
+	highlightColor = termenv.ANSI256Color(28)
+	accentColor    = termenv.ANSI256Color(32)
+)
+
+// DefaultSelectedChoiceStyle is the default style for selected choices.
+func DefaultSelectedChoiceStyle[T any](c *Choice[T]) string {
+	return termenv.String(c.String).Foreground(accentColor).Bold().String()
+}
+
+// DefaultIncludedChoiceStyle is the default style for included choices.
+func DefaultIncludedChoiceStyle[T any](c *Choice[T]) string {
+	return termenv.String(c.String).Foreground(highlightColor).Bold().String()
+}
+
+// DefaultFinalChoicesStyle is the default style for final choices.
+func DefaultFinalChoicesStyle[T any](c []*Choice[T]) string {
+	var label string
+	switch len(c) {
+	case 0:
+		label = ""
+	case 1:
+		label = c[0].Label()
+	case 2:
+		label = fmt.Sprintf("%s, %s", c[0].Label(), c[1].Label())
+	default:
+		label = fmt.Sprintf("%s, ..., %s", c[0].Label(), c[len(c)-1].Label())
+	}
+	return termenv.String(label).Foreground(accentColor).String()
+}
+
+// MultiSelection represents a configurable selection prompt.
+type MultiSelection[T any] struct {
+	// choices represent all selectable choices of the selection. Slices of
+	// arbitrary types can be converted to a slice of choices using the helper
+	// selection.choices.
+	choices []*Choice[T]
+
+	// Prompt holds the prompt text or question that is to be answered by one of
+	// the choices.
+	Prompt string
+
+	// FilterPrompt is the prompt for the filter if filtering is enabled.
+	FilterPrompt string
+
+	// Filter is a function that decides whether a given choice should be
+	// displayed based on the text entered by the user into the filter input
+	// field. If Filter is nil, filtering will be disabled. By default the
+	// filter FilterContainsCaseInsensitive is used.
+	Filter func(filterText string, choice *Choice[T]) bool
+
+	// FilterPlaceholder holds the text that is displayed in the filter input
+	// field when no text was entered by the user yet. If empty, the
+	// DefaultFilterPlaceholder is used. If Filter is nil, filtering is disabled
+	// and FilterPlaceholder does nothing.
+	FilterPlaceholder string
+
+	// PageSize is the number of choices that are displayed at once. If PageSize
+	// is smaller than the number of choices, pagination is enabled. If PageSize
+	// is 0, pagenation is disabled. Regardless of the value of PageSize,
+	// pagination is always enabled when the prompt does not fit the terminal.
+	PageSize int
+
+	// LoopCursor enables the cursor to loop around to the first choice when
+	// navigating down from the last choice and the other way around.
+	LoopCursor bool
+
+	// Template holds the display template. A custom template can be used to
+	// completely customize the appearance of the selection prompt. If empty,
+	// the DefaultTemplate is used. The following variables and functions are
+	// available:
+	//
+	//  * Prompt string: The configured prompt.
+	//  * IsFiltered bool: Whether or not filtering is enabled.
+	//  * FilterPrompt string: The configured filter prompt.
+	//  * FilterInput string: The view of the filter input model.
+	//  * Choices []*Choice: The choices on the current page.
+	//  * NChoices int: The number of choices on the current page.
+	//  * SelectedIndex int: The index that is currently selected.
+	//  * PageSize int: The configured page size.
+	//  * IsPaged bool: Whether pagination is currently active.
+	//  * AllChoices []*Choice: All configured choices.
+	//  * NAllChoices int: The number of configured choices.
+	//  * TerminalWidth int: The width of the terminal.
+	//  * Selected(*Choice) string: The configured SelectedChoiceStyle.
+	//  * Unselected(*Choice) string: The configured UnselectedChoiceStyle.
+	//  * IsScrollDownHintPosition(idx int) bool: Returns whether
+	//    the scroll down hint should be displayed at the given index.
+	//  * IsScrollUpHintPosition(idx int) bool: Returns whether the
+	//    scroll up hint should be displayed at the given index).
+	//  * promptkit.UtilFuncMap: Handy helper functions.
+	//  * termenv TemplateFuncs (see https://github.com/muesli/termenv).
+	//  * The functions specified in ExtendedTemplateFuncs.
+	Template string
+
+	// ResultTemplate is rendered as soon as a choice has been selected.
+	// It is intended to permanently indicate the result of the prompt when the
+	// selection itself has disappeared. This template is only rendered in the
+	// Run() method and NOT when the selection prompt is used as a model. The
+	// following variables and functions are available:
+	//
+	//  * FinalChoices: The choice that was selected by the user.
+	//  * Prompt string: The configured prompt.
+	//  * AllChoices []*Choice: All configured choices.
+	//  * NAllChoices int: The number of configured choices.
+	//  * TerminalWidth int: The width of the terminal.
+	//  * Final([]*Choice) string: The configured FinalChoicesStyle.
+	//  * promptkit.UtilFuncMap: Handy helper functions.
+	//  * termenv TemplateFuncs (see https://github.com/muesli/termenv).
+	//  * The functions specified in ExtendedTemplateFuncs.
+	ResultTemplate string
+
+	// ExtendedTemplateFuncs can be used to add additional functions to the
+	// evaluation scope of the templates.
+	ExtendedTemplateFuncs template.FuncMap
+
+	// Styles of the filter input field. These will be applied as inline styles.
+	//
+	// For an introduction to styling with Lip Gloss see:
+	// https://github.com/charmbracelet/lipgloss
+	FilterInputTextStyle        lipgloss.Style
+	FilterInputBackgroundStyle  lipgloss.Style // Deprecated: This property is not used anymore.
+	FilterInputPlaceholderStyle lipgloss.Style
+	FilterInputCursorStyle      lipgloss.Style
+
+	// IncludedChoiceStyle allows to customize the appearance of the currently
+	// included choices. By default DefaultIncludedChoiceStyle is used. If it is
+	// nil, no style will be applied and the plain string representation of the
+	// choice will be used. This style will be available as the template
+	// function Selected. Custom templates may or may not use this function.
+	IncludedChoiceStyle func(*Choice[T]) string
+
+	// SelectedChoiceStyle allows to customize the appearance of the currently
+	// selected choice. By default DefaultSelectedChoiceStyle is used. If it is
+	// nil, no style will be applied and the plain string representation of the
+	// choice will be used. This style will be available as the template
+	// function Selected. Custom templates may or may not use this function.
+	SelectedChoiceStyle func(*Choice[T]) string
+
+	// UnselectedChoiceStyle style allows to customize the appearance of the
+	// currently unselected choice. By default it is nil, such that no style
+	// will be applied and the plain string representation of the choice will be
+	// used. This style will be available as the template function Unselected.
+	// Custom templates may or may not use this function.
+	UnselectedChoiceStyle func(*Choice[T]) string
+
+	// FinalChoicesStyle style allows to customize the appearance of the choice
+	// that were ultimately chosen. By default DefaultFinalChoicesStyle is used.
+	// If it is nil, no style will be applied and the plain string
+	// representation of the choices will be used. This style will be available
+	// as the template function Final. Custom templates may or may not use this
+	// function.
+	FinalChoicesStyle func([]*Choice[T]) string
+
+	// KeyMap determines with which keys the selection prompt is controlled. By
+	// default, DefaultKeyMap is used.
+	KeyMap *KeyMap
+
+	// WrapMode decides which way the prompt view is wrapped if it does not fit
+	// the terminal. It can be a WrapMode provided by promptkit or a custom
+	// function. By default it is promptkit.WordWrap. It can also be nil which
+	// disables wrapping and likely causes output glitches.
+	WrapMode promptkit.WrapMode
+
+	// Output is the output writer, by default os.Stdout is used.
+	Output io.Writer
+	// Input is the input reader, by default, os.Stdin is used.
+	Input io.Reader
+
+	// ColorProfile determines how colors are rendered. By default, the terminal
+	// is queried.
+	ColorProfile termenv.Profile
+}
+
+// New creates a new selection prompt. See the MultiSelection properties for more
+// documentation.
+func New[T any](prompt string, choices []T) *MultiSelection[T] {
+	return &MultiSelection[T]{
+		choices:                     asChoices(choices),
+		Prompt:                      prompt,
+		FilterPrompt:                DefaultFilterPrompt,
+		Template:                    DefaultTemplate,
+		ResultTemplate:              DefaultResultTemplate,
+		Filter:                      FilterContainsCaseInsensitive[T],
+		FilterInputPlaceholderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+		SelectedChoiceStyle:         DefaultSelectedChoiceStyle[T],
+		IncludedChoiceStyle:         DefaultIncludedChoiceStyle[T],
+		FinalChoicesStyle:           DefaultFinalChoicesStyle[T],
+		KeyMap:                      NewDefaultKeyMap(),
+		FilterPlaceholder:           DefaultFilterPlaceholder,
+		ExtendedTemplateFuncs:       template.FuncMap{},
+		WrapMode:                    promptkit.Truncate,
+		Output:                      os.Stdout,
+		Input:                       os.Stdin,
+	}
+}
+
+// RunPrompt executes the selection prompt.
+func (s *MultiSelection[T]) RunPrompt() ([]T, error) {
+	err := validateKeyMap(s.KeyMap)
+	if err != nil {
+		return nil, fmt.Errorf("insufficient key map: %w", err)
+	}
+
+	m := NewModel(s)
+
+	p := tea.NewProgram(m, tea.WithOutput(s.Output), tea.WithInput(s.Input))
+
+	_, err = p.Run()
+	if err != nil {
+		return nil, fmt.Errorf("running prompt: %w", err)
+	}
+
+	return m.Values()
+}
+
+// FilterContainsCaseInsensitive returns true if the string representation of
+// the choice contains the filter string without regard for capitalization.
+func FilterContainsCaseInsensitive[T any](filter string, choice *Choice[T]) bool {
+	return strings.Contains(strings.ToLower(choice.String), strings.ToLower(filter))
+}
+
+// FilterContainsCaseSensitive returns true if the string representation of the
+// choice contains the filter string respecting capitalization.
+func FilterContainsCaseSensitive[T any](filter string, choice *Choice[T]) bool {
+	return strings.Contains(choice.String, filter)
+}
