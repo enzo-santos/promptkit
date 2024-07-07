@@ -111,6 +111,10 @@ func (m *Model[T]) initTemplate() (*template.Template, error) {
 		"IsScrollUpHintPosition": func(idx int) bool {
 			return m.canScrollUp() && idx == 0 && m.scrollOffset > 0
 		},
+		"IsIncluded": func(c *Choice[T]) bool {
+			_, ok := m.includedChoices[c]
+			return ok
+		},
 		"Selected": func(c *Choice[T]) string {
 			labeler := m.SelectedChoiceStyle
 			if labeler == nil {
