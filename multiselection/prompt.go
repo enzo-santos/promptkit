@@ -38,7 +38,13 @@ const (
     {{- "  " -}}
   {{- end -}}
 
-  {{- if eq $.SelectedIndex $i }}
+  {{- if IsIncluded $choice }}
+   {{- if eq $.SelectedIndex $i }}
+    {{- print (Foreground "32" (Bold "✓ ")) (Selected $choice) "\n" }}
+   {{- else }}
+    {{- print (Foreground "28" (Bold "✓ ")) (Included $choice) "\n" }}
+   {{- end }}
+  {{- else if eq $.SelectedIndex $i }}
    {{- print (Foreground "32" (Bold "▸ ")) (Selected $choice) "\n" }}
   {{- else }}
     {{- print "  " (Unselected $choice) "\n" }}
