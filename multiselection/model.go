@@ -184,17 +184,18 @@ func (m *Model[T]) ValuesAsChoices() ([]*Choice[T], error) {
 	return choices, nil
 }
 
-// Value returns the choice that is currently selected or the final
+// Values returns the choice that is currently selected or the final
 // choice after the prompt has concluded.
-func (m *Model[T]) Value() (T, error) {
-	choice, err := m.ValueAsChoice()
+func (m *Model[T]) Values() ([]T, error) {
+	choices, err := m.ValuesAsChoices()
 	if err != nil {
-		var zeroValue T
-
-		return zeroValue, err
+		return nil, err
 	}
-
-	return choice.Value, nil
+	values := make([]T, len(choices))
+	for i, choice := range choices {
+		values[i] = choice.Value
+	}
+	return values, nil
 }
 
 // Update updates the model based on the received message.
