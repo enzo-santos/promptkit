@@ -70,6 +70,20 @@ func DefaultSelectedChoiceStyle[T any](c *Choice[T]) string {
 // DefaultFinalChoiceStyle is the default style for final choices.
 func DefaultFinalChoiceStyle[T any](c *Choice[T]) string {
 	return termenv.String(c.String).Foreground(accentColor).String()
+// DefaultFinalChoicesStyle is the default style for final choices.
+func DefaultFinalChoicesStyle[T any](c []*Choice[T]) string {
+	var label string
+	switch len(c) {
+	case 0:
+		label = ""
+	case 1:
+		label = c[0].Label()
+	case 2:
+		label = fmt.Sprintf("%s, %s", c[0].Label(), c[1].Label())
+	default:
+		label = fmt.Sprintf("%s, ..., %s", c[0].Label(), c[len(c)-1].Label())
+	}
+	return termenv.String(label).Foreground(accentColor).String()
 }
 
 // MultiSelection represents a configurable selection prompt.
