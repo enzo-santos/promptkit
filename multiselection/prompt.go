@@ -231,10 +231,10 @@ func New[T any](prompt string, choices []T) *MultiSelection[T] {
 }
 
 // RunPrompt executes the selection prompt.
-func (s *MultiSelection[T]) RunPrompt() (T, error) {
+func (s *MultiSelection[T]) RunPrompt() ([]T, error) {
 	err := validateKeyMap(s.KeyMap)
 	if err != nil {
-		return zeroValue, fmt.Errorf("insufficient key map: %w", err)
+		return nil, fmt.Errorf("insufficient key map: %w", err)
 	}
 
 	m := NewModel(s)
@@ -243,10 +243,10 @@ func (s *MultiSelection[T]) RunPrompt() (T, error) {
 
 	_, err = p.Run()
 	if err != nil {
-		return zeroValue, fmt.Errorf("running prompt: %w", err)
+		return nil, fmt.Errorf("running prompt: %w", err)
 	}
 
-	return m.Value()
+	return m.Values()
 }
 
 // FilterContainsCaseInsensitive returns true if the string representation of
