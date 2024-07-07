@@ -109,24 +109,18 @@ func (m *Model[T]) initTemplate() (*template.Template, error) {
 			return m.canScrollUp() && idx == 0 && m.scrollOffset > 0
 		},
 		"Selected": func(c *Choice[T]) string {
-			if m.SelectedChoiceStyle == nil {
-				if labeler := m.Labeler; labeler == nil {
-					return c.String
-				}
-				return m.Labeler(c)
+			labeler := m.SelectedChoiceStyle
+			if labeler == nil {
+				return c.String
 			}
-
-			return m.SelectedChoiceStyle(c)
+			return labeler(c)
 		},
 		"Unselected": func(c *Choice[T]) string {
-			if m.UnselectedChoiceStyle == nil {
-				if labeler := m.Labeler; labeler == nil {
-					return c.String
-				}
-				return m.Labeler(c)
+			labeler := m.UnselectedChoiceStyle
+			if labeler == nil {
+				return c.String
 			}
-
-			return m.UnselectedChoiceStyle(c)
+			return labeler(c)
 		},
 	})
 
