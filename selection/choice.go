@@ -4,6 +4,10 @@ import (
 	"fmt"
 )
 
+type labeled interface {
+	Label() string
+}
+
 // Choice represents a single choice. This type used as an input
 // for the selection prompt, for filtering and as a result value.
 type Choice[T any] struct {
@@ -13,8 +17,12 @@ type Choice[T any] struct {
 }
 
 // Index returns the current index of the choice.
-func (c *Choice[T]) Index() int {
+func (c Choice[T]) Index() int {
 	return c.idx
+}
+
+func (c Choice[T]) Label() string {
+	return c.String
 }
 
 // newChoice creates a new choice for a given input and chooses
@@ -24,10 +32,8 @@ func newChoice[T any](item T) *Choice[T] {
 	choice := &Choice[T]{idx: 0, Value: item}
 
 	switch i := any(item).(type) {
-	case Choice[T]:
-		choice.String = i.String
-	case *Choice[T]:
-		choice.String = i.String
+	case labeled:
+		choice.String = i.Label()
 	case string:
 		choice.String = i
 	case fmt.Stringer:
