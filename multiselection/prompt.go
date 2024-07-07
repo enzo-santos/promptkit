@@ -92,11 +92,6 @@ type Selection[T any] struct {
 	// filter FilterContainsCaseInsensitive is used.
 	Filter func(filterText string, choice *Choice[T]) bool
 
-	// Labeler is a function that creates the text to be displayed for a
-	// given value. If Labeler is nil, the text will be infered from context
-	// (from SelectedChoiceStyle, UnselectedChoiceStyle, or Choice.String).
-	Labeler func(*Choice[T]) string
-
 	// FilterPlaceholder holds the text that is displayed in the filter input
 	// field when no text was entered by the user yet. If empty, the
 	// DefaultFilterPlaceholder is used. If Filter is nil, filtering is disabled
