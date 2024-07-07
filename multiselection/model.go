@@ -165,8 +165,8 @@ func (m *Model[T]) initFilterInput() textinput.Model {
 	return filterInput
 }
 
-// ValueAsChoice returns the selected value wrapped in a Choice struct.
-func (m *Model[T]) ValueAsChoice() (*Choice[T], error) {
+// ValuesAsChoices returns the selected value wrapped in a Choice struct.
+func (m *Model[T]) ValuesAsChoices() ([]*Choice[T], error) {
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -175,11 +175,13 @@ func (m *Model[T]) ValueAsChoice() (*Choice[T], error) {
 		return nil, fmt.Errorf("no choices")
 	}
 
-	if m.currentIdx < 0 || m.currentIdx >= len(m.currentChoices) {
-		return nil, fmt.Errorf("choice index out of bounds")
+	choices := make([]*Choice[T], len(m.includedChoices))
+	idx := 0
+	for choice := range m.includedChoices {
+		choices[idx] = choice
+		idx++
 	}
-
-	return m.currentChoices[m.currentIdx], nil
+	return choices, nil
 }
 
 // Value returns the choice that is currently selected or the final
