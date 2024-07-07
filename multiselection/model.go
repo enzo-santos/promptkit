@@ -212,6 +212,17 @@ func (m *Model[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 
 			return m, tea.Quit
+		case keyMatches(msg, m.KeyMap.Include):
+			choice := m.currentChoices[m.currentIdx]
+			if m.includedChoices == nil {
+				m.includedChoices = make(map[*Choice[T]]struct{})
+			}
+			_, ok := m.includedChoices[choice]
+			if ok {
+				delete(m.includedChoices, choice)
+			} else {
+				m.includedChoices[choice] = struct{}{}
+			}
 		case keyMatches(msg, m.KeyMap.Select):
 			if len(m.currentChoices) == 0 {
 				return m, nil
