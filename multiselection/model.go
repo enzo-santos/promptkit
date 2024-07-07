@@ -140,12 +140,12 @@ func (m *Model[T]) initResultTemplate() (*template.Template, error) {
 	tmpl.Funcs(m.ExtendedTemplateFuncs)
 	tmpl.Funcs(promptkit.UtilFuncMap())
 	tmpl.Funcs(template.FuncMap{
-		"Final": func(c *Choice[T]) string {
-			if m.FinalChoiceStyle == nil {
-				return c.String
+		"Final": func(c []*Choice[T]) string {
+			if m.FinalChoicesStyle == nil {
+				return DefaultFinalChoicesStyle(c)
 			}
 
-			return m.FinalChoiceStyle(c)
+			return m.FinalChoicesStyle(c)
 		},
 	})
 
