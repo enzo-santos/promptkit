@@ -165,12 +165,12 @@ type MultiSelection[T any] struct {
 	// Run() method and NOT when the selection prompt is used as a model. The
 	// following variables and functions are available:
 	//
-	//  * FinalChoice: The choice that was selected by the user.
+	//  * FinalChoices: The choice that was selected by the user.
 	//  * Prompt string: The configured prompt.
 	//  * AllChoices []*Choice: All configured choices.
 	//  * NAllChoices int: The number of configured choices.
 	//  * TerminalWidth int: The width of the terminal.
-	//  * Final(*Choice) string: The configured FinalChoiceStyle.
+	//  * Final([]*Choice) string: The configured FinalChoicesStyle.
 	//  * promptkit.UtilFuncMap: Handy helper functions.
 	//  * termenv TemplateFuncs (see https://github.com/muesli/termenv).
 	//  * The functions specified in ExtendedTemplateFuncs.
